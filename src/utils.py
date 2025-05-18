@@ -146,7 +146,7 @@ def use_fallback_pdf(s3_key):
     '''
 
 def embed_pdf_base64(s3_key):
-    """Embed a PDF file from S3 using PDF.js viewer."""
+    """Embed a PDF file from S3 as base64 in HTML."""
     try:
         # Get S3 client and bucket name
         s3_client = get_s3_client()
@@ -168,60 +168,35 @@ def embed_pdf_base64(s3_key):
                 return ""
                 
             pdf_content = response['Body'].read()
-            
-            if not pdf_content or not isinstance(pdf_content, (str, bytes)):
-                st.write("❌ Invalid PDF content")
-                return ""
-            
-            # Convert to base64
             base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
-            st.write("✅ PDF loaded successfully")
             
-            # Use PDF.js viewer with base64 data
+            # Simple but reliable PDF viewer
             return f'''
-                <div style="width:100%; height:80vh; position:relative;">
-                    <iframe
-                        src="https://mozilla.github.io/pdf.js/web/viewer.html?file=data:application/pdf;base64,{base64_pdf}#zoom=page-fit"
+                <div style="width:100%; height:800px; margin:0; padding:0;">
+                    <object
+                        data="data:application/pdf;base64,{base64_pdf}"
+                        type="application/pdf"
                         width="100%"
                         height="100%"
-                        style="border: 1px solid #ddd; border-radius: 4px; position:absolute; top:0; left:0; right:0; bottom:0;"
-                        allowfullscreen
-                    ></iframe>
+                        style="border:1px solid #ccc; border-radius:4px;">
+                        <embed
+                            src="data:application/pdf;base64,{base64_pdf}"
+                            type="application/pdf"
+                            width="100%"
+                            height="100%"
+                            style="border:1px solid #ccc; border-radius:4px;"
+                        />
+                    </object>
                 </div>
-                <style>
-                    /* Ensure iframe takes full width and maintains aspect ratio */
-                    iframe {{
-                        aspect-ratio: 16/9;
-                        min-height: 80vh;
-                        background: white;
-                    }}
-                    
-                    /* Add responsive behavior */
-                    @media (max-width: 768px) {{
-                        iframe {{
-                            min-height: 60vh;
-                        }}
-                    }}
-                    
-                    /* Improve iframe container */
-                    div:has(> iframe) {{
-                        margin: 0;
-                        padding: 0;
-                        overflow: hidden;
-                        background: #f8f9fa;
-                        border-radius: 4px;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    }}
-                </style>
             '''
+            
         except Exception as s3_error:
-            error_msg = f"❌ Error accessing PDF: {str(s3_error)}"
-            st.write(error_msg)
-            return ""
+            st.write(f"❌ Error accessing PDF: {str(s3_error)}")
+            return use_fallback_pdf(s3_key)
+            
     except Exception as e:
-        error_msg = f"❌ Error setting up PDF viewer: {str(e)}"
-        st.write(error_msg)
-        return ""
+        st.write(f"❌ Error setting up PDF viewer: {str(e)}")
+        return use_fallback_pdf(s3_key)
 
 def generate_comparison_pairs(versions):
     """Generate pairs of versions for comparison."""
