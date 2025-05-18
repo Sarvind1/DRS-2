@@ -143,7 +143,7 @@ with col2:
         st.session_state.selected_comparison = (versions[0], versions[1])
 
     # Create version comparison buttons
-    st.markdown("#### Select Versions to Compare")
+    # st.markdown("#### Select Versions to Compare")
     cols = st.columns(3)
     for i, (v1, v2) in enumerate(pairs):
         label = f"Ver {v1} vs {v2}"
