@@ -146,37 +146,38 @@ def use_fallback_pdf(s3_key):
     '''
 
 def embed_pdf_base64(s3_key):
-    """Embed a PDF file from S3 using pre-signed URL."""
+    """Embed a PDF file from S3 as base64 in HTML."""
     try:
         # Get S3 client and bucket name
         s3_client = get_s3_client()
         bucket_name = get_secret('bucket_name')
         
         if not bucket_name:
-            st.write("⚠️ S3 bucket name not configured")
+            st.error("S3 bucket name not configured")
             return ""
             
         full_key = get_full_s3_key(s3_key)
         
         try:
-            # Generate a pre-signed URL that expires in 1 hour
-            url = s3_client.generate_presigned_url(
-                'get_object',
-                Params={'Bucket': bucket_name, 'Key': full_key},
-                ExpiresIn=3600
-            )
+            response = s3_client.get_object(Bucket=bucket_name, Key=full_key)
+            pdf_content = response['Body'].read()
             
-            # Use Google Docs viewer as a reliable PDF viewer
-            google_viewer_url = f"https://docs.google.com/viewer?url={url}&embedded=true"
+            # Encode the PDF content as base64
+            base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
             
-            return f'''
-                <iframe
-                    src="{google_viewer_url}"
-                    style="width: 100%; height: 800px; border: none; background-color: white;"
-                    frameborder="0"
-                    scrolling="auto"
-                ></iframe>
+            # Create the PDF viewer HTML with base64 data
+            pdf_display = f'''
+                <div style="width:100%; height:60vh;">
+                    <embed
+                        type="application/pdf"
+                        src="data:application/pdf;base64,{base64_pdf}"
+                        width="100%"
+                        height="100%"
+                        style="border: 1px solid #ddd; border-radius: 4px;"
+                    />
+                </div>
             '''
+            return pdf_display
             
         except Exception as s3_error:
             st.error(f"Error accessing PDF: {str(s3_error)}")
