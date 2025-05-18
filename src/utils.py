@@ -146,7 +146,7 @@ def use_fallback_pdf(s3_key):
     '''
 
 def embed_pdf_base64(s3_key):
-    """Embed a PDF file from S3 as base64 in HTML."""
+    """Try multiple methods to embed PDF from S3."""
     try:
         # Get S3 client and bucket name
         s3_client = get_s3_client()
@@ -159,25 +159,100 @@ def embed_pdf_base64(s3_key):
         full_key = get_full_s3_key(s3_key)
         
         try:
+            # Get PDF content from S3
             response = s3_client.get_object(Bucket=bucket_name, Key=full_key)
             pdf_content = response['Body'].read()
-            
-            # Encode the PDF content as base64
             base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
             
-            # Create the PDF viewer HTML with base64 data
-            pdf_display = f'''
-                <div style="width:100%; height:60vh;">
+            # Generate a pre-signed URL
+            url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': bucket_name, 'Key': full_key},
+                ExpiresIn=3600
+            )
+            
+            # Try multiple display methods
+            st.markdown("### Method 1: Basic Embed Tag")
+            st.markdown(f'''
+                <div style="width:100%; height:400px;">
                     <embed
                         type="application/pdf"
                         src="data:application/pdf;base64,{base64_pdf}"
                         width="100%"
                         height="100%"
-                        style="border: 1px solid #ddd; border-radius: 4px;"
+                        style="border: 1px solid #ddd;"
                     />
                 </div>
-            '''
-            return pdf_display
+            ''', unsafe_allow_html=True)
+            
+            st.markdown("### Method 2: Object with Embed Fallback")
+            st.markdown(f'''
+                <div style="width:100%; height:400px;">
+                    <object
+                        data="data:application/pdf;base64,{base64_pdf}"
+                        type="application/pdf"
+                        width="100%"
+                        height="100%"
+                        style="border: 1px solid #ddd;">
+                        <embed
+                            src="data:application/pdf;base64,{base64_pdf}"
+                            type="application/pdf"
+                            width="100%"
+                            height="100%"
+                        />
+                    </object>
+                </div>
+            ''', unsafe_allow_html=True)
+            
+            st.markdown("### Method 3: Direct URL in IFrame")
+            st.markdown(f'''
+                <div style="width:100%; height:400px;">
+                    <iframe
+                        src="{url}"
+                        width="100%"
+                        height="100%"
+                        style="border: 1px solid #ddd;"
+                        allowfullscreen
+                    ></iframe>
+                </div>
+            ''', unsafe_allow_html=True)
+            
+            st.markdown("### Method 4: Google Docs Viewer")
+            st.markdown(f'''
+                <div style="width:100%; height:400px;">
+                    <iframe
+                        src="https://docs.google.com/viewer?url={url}&embedded=true"
+                        width="100%"
+                        height="100%"
+                        style="border: 1px solid #ddd;"
+                        allowfullscreen
+                    ></iframe>
+                </div>
+            ''', unsafe_allow_html=True)
+            
+            st.markdown("### Method 5: PDF.js Viewer")
+            st.markdown(f'''
+                <div style="width:100%; height:400px;">
+                    <iframe
+                        src="https://mozilla.github.io/pdf.js/web/viewer.html?file=data:application/pdf;base64,{base64_pdf}"
+                        width="100%"
+                        height="100%"
+                        style="border: 1px solid #ddd;"
+                        allowfullscreen
+                    ></iframe>
+                </div>
+            ''', unsafe_allow_html=True)
+            
+            # Also try native Streamlit methods
+            st.markdown("### Method 6: Native Streamlit")
+            st.download_button(
+                "📥 Download PDF",
+                pdf_content,
+                file_name=s3_key.split('/')[-1],
+                mime="application/pdf"
+            )
+            
+            return ""  # Return empty since we're using st.markdown directly
             
         except Exception as s3_error:
             st.error(f"Error accessing PDF: {str(s3_error)}")
