@@ -15,36 +15,13 @@ def get_secret(key, default=None):
 
 def get_s3_client():
     """Create and return an S3 client using credentials from Streamlit secrets or environment variables."""
-    try:
-        access_key = get_secret('access_key_id')
-        secret_key = get_secret('secret_access_key')
-        session_token = get_secret('session_token')
-        region = get_secret('region', 'eu-central-1')
-        
-        if not access_key or not secret_key:
-            logger.error("AWS credentials not configured")
-            return None
-            
-        client = boto3.client(
-            's3',
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
-            aws_session_token=session_token,
-            region_name=region
-        )
-        
-        # Test connection
-        try:
-            client.list_buckets()
-            logger.info("Successfully connected to AWS S3")
-            return client
-        except Exception as e:
-            logger.error(f"Failed to connect to AWS S3: {str(e)}")
-            return None
-            
-    except Exception as e:
-        logger.error(f"Error creating S3 client: {str(e)}")
-        return None
+    return boto3.client(
+        's3',
+        aws_access_key_id=get_secret('access_key_id'),
+        aws_secret_access_key=get_secret('secret_access_key'),
+        aws_session_token=get_secret('session_token'),
+        region_name=get_secret('region', 'eu-central-1')
+    )
 
 def get_full_s3_key(relative_key):
     """Get the full S3 key including the base prefix.

@@ -150,36 +150,46 @@ def embed_pdf_base64(s3_key):
         # Get S3 client and bucket name
         s3_client = get_s3_client()
         bucket_name = get_secret('bucket_name')
-        if not s3_client or not bucket_name:
-            logger.error("S3 configuration incomplete")
-            return ""
-
-        # Get PDF content from S3
-        full_key = get_full_s3_key(s3_key)
-        logger.info(f"Fetching PDF from s3://{bucket_name}/{full_key}")
         
-        response = s3_client.get_object(Bucket=bucket_name, Key=full_key)
-        pdf_content = response['Body'].read()
-        
-        if not isinstance(pdf_content, bytes):
-            logger.error(f"Invalid PDF content type: {type(pdf_content)}")
+        if not bucket_name:
+            logger.warning("S3 bucket name not configured")
             return ""
             
-        # Create PDF viewer HTML
-        base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
-        logger.info(f"Successfully processed PDF from {s3_key}")
+        full_key = get_full_s3_key(s3_key)
+        logger.info(f"Attempting to fetch PDF from s3://{bucket_name}/{full_key}")
         
-        return f'''
-            <div style="width:100%; height:60vh;">
-                <embed
-                    type="application/pdf"
-                    src="data:application/pdf;base64,{base64_pdf}"
-                    width="100%"
-                    height="100%"
-                    style="border: 1px solid #ddd; border-radius: 4px;"
-                />
-            </div>
-        '''
+        try:
+            # Get PDF content directly from S3
+            response = s3_client.get_object(Bucket=bucket_name, Key=full_key)
+            
+            if 'Body' not in response:
+                logger.warning("No content body in S3 response")
+                return ""
+                
+            pdf_content = response['Body'].read()
+            
+            if not pdf_content or not isinstance(pdf_content, (str, bytes)):
+                logger.warning("Invalid PDF content returned from S3")
+                return ""
+            
+            # Create PDF viewer HTML
+            base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
+            logger.info(f"Successfully processed PDF from {s3_key}")
+            
+            return f'''
+                <div style="width:100%; height:60vh;">
+                    <embed
+                        type="application/pdf"
+                        src="data:application/pdf;base64,{base64_pdf}"
+                        width="100%"
+                        height="100%"
+                        style="border: 1px solid #ddd; border-radius: 4px;"
+                    />
+                </div>
+            '''
+        except Exception as s3_error:
+            logger.error(f"Error fetching from S3: {str(s3_error)}")
+            return ""
     except Exception as e:
         logger.error(f"Error embedding PDF {s3_key}: {str(e)}")
         return ""
