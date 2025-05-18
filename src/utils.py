@@ -152,46 +152,69 @@ def embed_pdf_base64(s3_key):
         bucket_name = get_secret('bucket_name')
         
         if not bucket_name:
-            logger.warning("S3 bucket name not configured")
+            st.write("⚠️ S3 bucket name not configured")
             return ""
             
         full_key = get_full_s3_key(s3_key)
-        logger.info(f"Attempting to fetch PDF from s3://{bucket_name}/{full_key}")
+        st.write(f"📄 Loading PDF: {s3_key}")
         
         try:
             # Get PDF content directly from S3
             response = s3_client.get_object(Bucket=bucket_name, Key=full_key)
             
             if 'Body' not in response:
-                logger.warning("No content body in S3 response")
+                st.write("❌ Failed to load PDF content")
                 return ""
                 
             pdf_content = response['Body'].read()
             
             if not pdf_content or not isinstance(pdf_content, (str, bytes)):
-                logger.warning("Invalid PDF content returned from S3")
+                st.write("❌ Invalid PDF content")
                 return ""
             
-            # Create PDF viewer HTML
+            # Create PDF viewer HTML with web-friendly approach
             base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
-            logger.info(f"Successfully processed PDF from {s3_key}")
+            st.write("✅ PDF loaded successfully")
             
+            # Add necessary headers and viewport settings
             return f'''
-                <div style="width:100%; height:60vh;">
-                    <embed
+                <div style="width:100%; height:60vh; overflow:hidden;">
+                    <object
+                        data="data:application/pdf;base64,{base64_pdf}"
                         type="application/pdf"
-                        src="data:application/pdf;base64,{base64_pdf}"
                         width="100%"
                         height="100%"
                         style="border: 1px solid #ddd; border-radius: 4px;"
-                    />
+                    >
+                        <iframe
+                            src="data:application/pdf;base64,{base64_pdf}#toolbar=0"
+                            width="100%"
+                            height="100%"
+                            style="border: none;"
+                            allowfullscreen
+                        >
+                            <p>Your browser doesn't support PDF viewing. Please download the PDF to view it.</p>
+                        </iframe>
+                    </object>
                 </div>
+                <script>
+                    // Ensure PDF is properly scaled
+                    document.addEventListener('DOMContentLoaded', function() {{
+                        const objects = document.querySelectorAll('object[data^="data:application/pdf"]');
+                        objects.forEach(obj => {{
+                            obj.style.width = '100%';
+                            obj.style.height = '100%';
+                        }});
+                    }});
+                </script>
             '''
         except Exception as s3_error:
-            logger.error(f"Error fetching from S3: {str(s3_error)}")
+            error_msg = f"❌ Error fetching PDF: {str(s3_error)}"
+            st.write(error_msg)
             return ""
     except Exception as e:
-        logger.error(f"Error embedding PDF {s3_key}: {str(e)}")
+        error_msg = f"❌ Error embedding PDF: {str(e)}"
+        st.write(error_msg)
         return ""
 
 def generate_comparison_pairs(versions):
