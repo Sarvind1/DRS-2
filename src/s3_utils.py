@@ -15,16 +15,14 @@ def get_secret(key, default=None):
 def get_s3_client():
     """Create and return an S3 client using credentials from Streamlit secrets or environment variables."""
     try:
+        st.write("Initializing S3 client...")
         access_key = get_secret('access_key_id')
         secret_key = get_secret('secret_access_key')
         session_token = get_secret('session_token')
         region = get_secret('region', 'eu-central-1')
-        bucket_name = get_secret('bucket_name')
         
-        # Debug info for cloud troubleshooting
-        st.write("S3 Configuration Check:")
+        st.write("S3 Configuration:")
         st.write(f"- Region: {region}")
-        st.write(f"- Bucket: {bucket_name}")
         st.write(f"- Access Key: {'[SET]' if access_key else '[NOT SET]'}")
         st.write(f"- Secret Key: {'[SET]' if secret_key else '[NOT SET]'}")
         st.write(f"- Session Token: {'[SET]' if session_token else '[NOT SET]'}")
@@ -33,6 +31,7 @@ def get_s3_client():
             st.error("AWS credentials not properly configured")
             return None
             
+        st.write("Creating S3 client...")
         client = boto3.client(
             's3',
             aws_access_key_id=access_key,
@@ -43,15 +42,20 @@ def get_s3_client():
         
         # Test connection
         try:
+            st.write("Testing S3 connection...")
             client.list_buckets()
             st.success("✓ Successfully connected to AWS")
+            return client
         except Exception as e:
-            st.error(f"✗ AWS Connection Test Failed: {str(e)}")
+            st.error(f"AWS Connection Test Failed: {str(e)}")
+            st.error(f"Error type: {type(e).__name__}")
+            st.error(f"Full error: {repr(e)}")
             return None
             
-        return client
     except Exception as e:
         st.error(f"Error creating S3 client: {str(e)}")
+        st.error(f"Error type: {type(e).__name__}")
+        st.error(f"Full error: {repr(e)}")
         return None
 
 def get_full_s3_key(relative_key):
