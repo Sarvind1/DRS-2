@@ -146,51 +146,37 @@ def use_fallback_pdf(s3_key):
 def embed_pdf_base64(s3_key):
     """Embed a PDF file from S3 as base64 in HTML."""
     try:
-        st.write("PDF Loading Process Started")
         # Download the PDF content from S3
         s3_client = get_s3_client()
         if not s3_client:
-            st.error("Failed to initialize S3 client")
             return ""
             
         bucket_name = get_secret('bucket_name')
         if not bucket_name:
-            st.error("S3 bucket name not configured")
             return ""
             
         full_key = get_full_s3_key(s3_key)
-        st.info(f"Attempting to access: s3://{bucket_name}/{full_key}")
         
         try:
             # Get the PDF content directly from S3
-            st.write("Fetching PDF from S3...")
             response = s3_client.get_object(Bucket=bucket_name, Key=full_key)
-            st.success(f"✓ File exists and downloaded")
             
             # Ensure we have valid content
             if 'Body' not in response:
-                st.error("No content body in S3 response")
-                st.write("Response keys:", list(response.keys()))
                 return ""
                 
             pdf_content = response['Body'].read()
-            st.write(f"Downloaded PDF size: {len(pdf_content)} bytes")
             
             # Check if pdf_content is valid
             if not pdf_content:
-                st.error("Empty PDF content returned from S3")
                 return ""
             if not isinstance(pdf_content, (str, bytes)):
-                st.error(f"Invalid PDF content type: {type(pdf_content)}")
                 return ""
             
             # Encode the PDF content as base64
-            st.write("Encoding PDF content...")
             base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
-            st.write(f"Encoded PDF size: {len(base64_pdf)} characters")
             
             # Create the PDF viewer HTML with base64 data
-            st.write("Creating PDF viewer...")
             pdf_display = f'''
                 <div style="width:100%; height:60vh;">
                     <embed
@@ -202,17 +188,10 @@ def embed_pdf_base64(s3_key):
                     />
                 </div>
             '''
-            st.success("PDF viewer created successfully")
             return pdf_display
         except Exception as s3_error:
-            st.error(f"Error fetching from S3: {str(s3_error)}")
-            st.error(f"Error type: {type(s3_error).__name__}")
-            st.error(f"Full error details: {repr(s3_error)}")
             return ""
     except Exception as e:
-        st.error(f"Error loading PDF: {str(e)}")
-        st.error(f"Error type: {type(e).__name__}")
-        st.error(f"Full error details: {repr(e)}")
         return ""
 
 def generate_comparison_pairs(versions):

@@ -2,7 +2,13 @@
 
 import streamlit as st
 from datetime import datetime
+import sys
+from pathlib import Path
 
+# Add src directory to Python path
+src_path = Path(__file__).parent
+if str(src_path) not in sys.path:
+    sys.path.append(str(src_path))
 
 from utils import (
     load_data,
