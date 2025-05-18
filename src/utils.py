@@ -146,7 +146,7 @@ def use_fallback_pdf(s3_key):
     '''
 
 def embed_pdf_base64(s3_key):
-    """Embed a PDF file from S3 as base64 in HTML."""
+    """Embed a PDF file from S3 using pre-signed URL."""
     try:
         # Get S3 client and bucket name
         s3_client = get_s3_client()
@@ -157,46 +157,34 @@ def embed_pdf_base64(s3_key):
             return ""
             
         full_key = get_full_s3_key(s3_key)
-        st.write(f"📄 Loading PDF: {s3_key}")
         
         try:
-            # Get PDF content directly from S3
-            response = s3_client.get_object(Bucket=bucket_name, Key=full_key)
+            # Generate a pre-signed URL that expires in 1 hour
+            url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': bucket_name, 'Key': full_key},
+                ExpiresIn=3600
+            )
             
-            if 'Body' not in response:
-                st.write("❌ Failed to load PDF content")
-                return ""
-                
-            pdf_content = response['Body'].read()
-            base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
+            # Use Google Docs viewer as a reliable PDF viewer
+            google_viewer_url = f"https://docs.google.com/viewer?url={url}&embedded=true"
             
-            # Simple but reliable PDF viewer
             return f'''
-                <div style="width:100%; height:800px; margin:0; padding:0;">
-                    <object
-                        data="data:application/pdf;base64,{base64_pdf}"
-                        type="application/pdf"
-                        width="100%"
-                        height="100%"
-                        style="border:1px solid #ccc; border-radius:4px;">
-                        <embed
-                            src="data:application/pdf;base64,{base64_pdf}"
-                            type="application/pdf"
-                            width="100%"
-                            height="100%"
-                            style="border:1px solid #ccc; border-radius:4px;"
-                        />
-                    </object>
-                </div>
+                <iframe
+                    src="{google_viewer_url}"
+                    style="width: 100%; height: 800px; border: none; background-color: white;"
+                    frameborder="0"
+                    scrolling="auto"
+                ></iframe>
             '''
             
         except Exception as s3_error:
-            st.write(f"❌ Error accessing PDF: {str(s3_error)}")
-            return use_fallback_pdf(s3_key)
+            st.error(f"Error accessing PDF: {str(s3_error)}")
+            return ""
             
     except Exception as e:
-        st.write(f"❌ Error setting up PDF viewer: {str(e)}")
-        return use_fallback_pdf(s3_key)
+        st.error(f"Error setting up PDF viewer: {str(e)}")
+        return ""
 
 def generate_comparison_pairs(versions):
     """Generate pairs of versions for comparison."""
