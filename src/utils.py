@@ -10,6 +10,7 @@ import tempfile
 from s3_utils import upload_file_to_s3, download_file_from_s3, get_s3_file_url, get_s3_client, get_full_s3_key, get_secret
 import streamlit as st
 from logger import logger
+from streamlit_pdf_viewer import pdf_viewer
 
 def load_data():
     """Load and prepare the review data."""
@@ -145,7 +146,7 @@ def use_fallback_pdf(s3_key):
     '''
 
 def embed_pdf_base64(s3_key):
-    """Embed a PDF file from S3 as base64 in HTML."""
+    """Embed a PDF file from S3 using streamlit-pdf-viewer."""
     try:
         # Get S3 client and bucket name
         s3_client = get_s3_client()
@@ -172,48 +173,21 @@ def embed_pdf_base64(s3_key):
                 st.write("❌ Invalid PDF content")
                 return ""
             
-            # Create PDF viewer HTML with web-friendly approach
-            base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
             st.write("✅ PDF loaded successfully")
             
-            # Add necessary headers and viewport settings
-            return f'''
-                <div style="width:100%; height:60vh; overflow:hidden;">
-                    <object
-                        data="data:application/pdf;base64,{base64_pdf}"
-                        type="application/pdf"
-                        width="100%"
-                        height="100%"
-                        style="border: 1px solid #ddd; border-radius: 4px;"
-                    >
-                        <iframe
-                            src="data:application/pdf;base64,{base64_pdf}#toolbar=0"
-                            width="100%"
-                            height="100%"
-                            style="border: none;"
-                            allowfullscreen
-                        >
-                            <p>Your browser doesn't support PDF viewing. Please download the PDF to view it.</p>
-                        </iframe>
-                    </object>
-                </div>
-                <script>
-                    // Ensure PDF is properly scaled
-                    document.addEventListener('DOMContentLoaded', function() {{
-                        const objects = document.querySelectorAll('object[data^="data:application/pdf"]');
-                        objects.forEach(obj => {{
-                            obj.style.width = '100%';
-                            obj.style.height = '100%';
-                        }});
-                    }});
-                </script>
-            '''
+            # Use streamlit-pdf-viewer to display the PDF
+            return pdf_viewer(
+                input=pdf_content,
+                width="100%",
+                height=600,
+                render_text=True
+            )
         except Exception as s3_error:
-            error_msg = f"❌ Error fetching PDF: {str(s3_error)}"
+            error_msg = f"❌ Error accessing PDF: {str(s3_error)}"
             st.write(error_msg)
             return ""
     except Exception as e:
-        error_msg = f"❌ Error embedding PDF: {str(e)}"
+        error_msg = f"❌ Error setting up PDF viewer: {str(e)}"
         st.write(error_msg)
         return ""
 
