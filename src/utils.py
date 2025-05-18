@@ -9,6 +9,7 @@ import csv
 import tempfile
 from s3_utils import upload_file_to_s3, download_file_from_s3, get_s3_file_url, get_s3_client, get_full_s3_key, get_secret
 import streamlit as st
+from logger import logger
 
 def load_data():
     """Load and prepare the review data."""
@@ -146,52 +147,41 @@ def use_fallback_pdf(s3_key):
 def embed_pdf_base64(s3_key):
     """Embed a PDF file from S3 as base64 in HTML."""
     try:
-        # Download the PDF content from S3
+        # Get S3 client and bucket name
         s3_client = get_s3_client()
-        if not s3_client:
-            return ""
-            
         bucket_name = get_secret('bucket_name')
-        if not bucket_name:
+        if not s3_client or not bucket_name:
+            logger.error("S3 configuration incomplete")
             return ""
-            
+
+        # Get PDF content from S3
         full_key = get_full_s3_key(s3_key)
+        logger.info(f"Fetching PDF from s3://{bucket_name}/{full_key}")
         
-        try:
-            # Get the PDF content directly from S3
-            response = s3_client.get_object(Bucket=bucket_name, Key=full_key)
-            
-            # Ensure we have valid content
-            if 'Body' not in response:
-                return ""
-                
-            pdf_content = response['Body'].read()
-            
-            # Check if pdf_content is valid
-            if not pdf_content:
-                return ""
-            if not isinstance(pdf_content, (str, bytes)):
-                return ""
-            
-            # Encode the PDF content as base64
-            base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
-            
-            # Create the PDF viewer HTML with base64 data
-            pdf_display = f'''
-                <div style="width:100%; height:60vh;">
-                    <embed
-                        type="application/pdf"
-                        src="data:application/pdf;base64,{base64_pdf}"
-                        width="100%"
-                        height="100%"
-                        style="border: 1px solid #ddd; border-radius: 4px;"
-                    />
-                </div>
-            '''
-            return pdf_display
-        except Exception as s3_error:
+        response = s3_client.get_object(Bucket=bucket_name, Key=full_key)
+        pdf_content = response['Body'].read()
+        
+        if not isinstance(pdf_content, bytes):
+            logger.error(f"Invalid PDF content type: {type(pdf_content)}")
             return ""
+            
+        # Create PDF viewer HTML
+        base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
+        logger.info(f"Successfully processed PDF from {s3_key}")
+        
+        return f'''
+            <div style="width:100%; height:60vh;">
+                <embed
+                    type="application/pdf"
+                    src="data:application/pdf;base64,{base64_pdf}"
+                    width="100%"
+                    height="100%"
+                    style="border: 1px solid #ddd; border-radius: 4px;"
+                />
+            </div>
+        '''
     except Exception as e:
+        logger.error(f"Error embedding PDF {s3_key}: {str(e)}")
         return ""
 
 def generate_comparison_pairs(versions):

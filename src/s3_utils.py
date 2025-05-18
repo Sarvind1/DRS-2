@@ -4,6 +4,7 @@ import boto3
 import streamlit as st
 from botocore.exceptions import ClientError
 import os
+from logger import logger
 
 def get_secret(key, default=None):
     """Get a secret from Streamlit secrets or environment variables."""
@@ -21,6 +22,7 @@ def get_s3_client():
         region = get_secret('region', 'eu-central-1')
         
         if not access_key or not secret_key:
+            logger.error("AWS credentials not configured")
             return None
             
         client = boto3.client(
@@ -34,11 +36,14 @@ def get_s3_client():
         # Test connection
         try:
             client.list_buckets()
+            logger.info("Successfully connected to AWS S3")
             return client
         except Exception as e:
+            logger.error(f"Failed to connect to AWS S3: {str(e)}")
             return None
             
     except Exception as e:
+        logger.error(f"Error creating S3 client: {str(e)}")
         return None
 
 def get_full_s3_key(relative_key):
@@ -63,18 +68,20 @@ def upload_file_to_s3(local_file_path, relative_key):
     try:
         s3_client = get_s3_client()
         if not s3_client:
+            logger.error("Failed to initialize S3 client for upload")
             return False
             
         bucket_name = get_secret('bucket_name')
         if not bucket_name:
-            st.warning("S3 bucket name not configured")
+            logger.error("S3 bucket name not configured")
             return False
         
         full_key = get_full_s3_key(relative_key)
         s3_client.upload_file(local_file_path, bucket_name, full_key)
+        logger.info(f"Successfully uploaded {local_file_path} to s3://{bucket_name}/{full_key}")
         return True
     except Exception as e:
-        st.error(f"Error uploading file to S3: {str(e)}")
+        logger.error(f"Error uploading file to S3: {str(e)}")
         return False
 
 def download_file_from_s3(relative_key, local_file_path):
@@ -87,19 +94,21 @@ def download_file_from_s3(relative_key, local_file_path):
     try:
         s3_client = get_s3_client()
         if not s3_client:
+            logger.error("Failed to initialize S3 client for download")
             return False
             
         bucket_name = get_secret('bucket_name')
         if not bucket_name:
-            st.warning("S3 bucket name not configured")
+            logger.error("S3 bucket name not configured")
             return False
         
         full_key = get_full_s3_key(relative_key)
         os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
         s3_client.download_file(bucket_name, full_key, local_file_path)
+        logger.info(f"Successfully downloaded s3://{bucket_name}/{full_key} to {local_file_path}")
         return True
     except Exception as e:
-        st.error(f"Error downloading file from S3: {str(e)}")
+        logger.error(f"Error downloading file from S3: {str(e)}")
         return False
 
 def get_s3_file_url(relative_key):
@@ -114,11 +123,12 @@ def get_s3_file_url(relative_key):
     try:
         s3_client = get_s3_client()
         if not s3_client:
+            logger.error("Failed to initialize S3 client for URL generation")
             return None
             
         bucket_name = get_secret('bucket_name')
         if not bucket_name:
-            st.warning("S3 bucket name not configured")
+            logger.error("S3 bucket name not configured")
             return None
         
         full_key = get_full_s3_key(relative_key)
@@ -127,9 +137,10 @@ def get_s3_file_url(relative_key):
             Params={'Bucket': bucket_name, 'Key': full_key},
             ExpiresIn=3600  # URL expires in 1 hour
         )
+        logger.info(f"Generated presigned URL for s3://{bucket_name}/{full_key}")
         return url
     except Exception as e:
-        st.error(f"Error generating pre-signed URL: {str(e)}")
+        logger.error(f"Error generating pre-signed URL: {str(e)}")
         return None
 
 def list_s3_files(prefix=""):
@@ -148,7 +159,7 @@ def list_s3_files(prefix=""):
             
         bucket_name = get_secret('bucket_name')
         if not bucket_name:
-            st.warning("S3 bucket name not configured")
+            logger.warning("S3 bucket name not configured")
             return []
         
         base_prefix = get_secret('base_prefix', 'Doc_Review/')
@@ -164,5 +175,5 @@ def list_s3_files(prefix=""):
             return [obj['Key'][len(base_prefix):] for obj in response['Contents']]
         return []
     except Exception as e:
-        st.error(f"Error listing S3 files: {str(e)}")
+        logger.error(f"Error listing S3 files: {str(e)}")
         return [] 
