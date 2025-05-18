@@ -19,9 +19,18 @@ def get_s3_client():
         secret_key = get_secret('secret_access_key')
         session_token = get_secret('session_token')
         region = get_secret('region', 'eu-central-1')
+        bucket_name = get_secret('bucket_name')
+        
+        # Debug info for cloud troubleshooting
+        st.write("S3 Configuration Check:")
+        st.write(f"- Region: {region}")
+        st.write(f"- Bucket: {bucket_name}")
+        st.write(f"- Access Key: {'[SET]' if access_key else '[NOT SET]'}")
+        st.write(f"- Secret Key: {'[SET]' if secret_key else '[NOT SET]'}")
+        st.write(f"- Session Token: {'[SET]' if session_token else '[NOT SET]'}")
         
         if not access_key or not secret_key:
-            st.warning("AWS credentials not properly configured")
+            st.error("AWS credentials not properly configured")
             return None
             
         client = boto3.client(
@@ -32,6 +41,14 @@ def get_s3_client():
             region_name=region
         )
         
+        # Test connection
+        try:
+            client.list_buckets()
+            st.success("✓ Successfully connected to AWS")
+        except Exception as e:
+            st.error(f"✗ AWS Connection Test Failed: {str(e)}")
+            return None
+            
         return client
     except Exception as e:
         st.error(f"Error creating S3 client: {str(e)}")

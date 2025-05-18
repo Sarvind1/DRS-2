@@ -154,17 +154,25 @@ def embed_pdf_base64(s3_key):
             return ""
             
         full_key = get_full_s3_key(s3_key)
+        st.write(f"Attempting to access: s3://{bucket_name}/{full_key}")
         
         try:
             # First check if file exists
             s3_client.head_object(Bucket=bucket_name, Key=full_key)
+            st.success(f"✓ File exists: {full_key}")
         except Exception as e:
-            st.error(f"File not found in S3: {full_key}")
+            st.error(f"✗ File not found: {full_key}")
+            st.error(f"Error details: {str(e)}")
             return ""
             
         # Get the PDF content
-        response = s3_client.get_object(Bucket=bucket_name, Key=full_key)
-        pdf_content = response['Body'].read()
+        try:
+            response = s3_client.get_object(Bucket=bucket_name, Key=full_key)
+            pdf_content = response['Body'].read()
+            st.success(f"✓ Successfully downloaded: {len(pdf_content)} bytes")
+        except Exception as e:
+            st.error(f"✗ Failed to download file: {str(e)}")
+            return ""
         
         # Encode the PDF content as base64
         base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
