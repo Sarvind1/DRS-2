@@ -146,7 +146,7 @@ def use_fallback_pdf(s3_key):
     '''
 
 def embed_pdf_base64(s3_key):
-    """Embed a PDF file from S3 using enhanced viewer."""
+    """Embed a PDF file from S3 using PDF.js viewer."""
     try:
         # Get S3 client and bucket name
         s3_client = get_s3_client()
@@ -160,20 +160,28 @@ def embed_pdf_base64(s3_key):
         st.write(f"📄 Loading PDF: {s3_key}")
         
         try:
-            # Generate a pre-signed URL for the PDF
-            url = s3_client.generate_presigned_url(
-                'get_object',
-                Params={'Bucket': bucket_name, 'Key': full_key},
-                ExpiresIn=3600  # URL expires in 1 hour
-            )
+            # Get PDF content directly from S3
+            response = s3_client.get_object(Bucket=bucket_name, Key=full_key)
             
-            st.write("✅ PDF URL generated successfully")
+            if 'Body' not in response:
+                st.write("❌ Failed to load PDF content")
+                return ""
+                
+            pdf_content = response['Body'].read()
             
-            # Create PDF viewer HTML with enhanced controls
+            if not pdf_content or not isinstance(pdf_content, (str, bytes)):
+                st.write("❌ Invalid PDF content")
+                return ""
+            
+            # Convert to base64
+            base64_pdf = base64.b64encode(pdf_content).decode('utf-8')
+            st.write("✅ PDF loaded successfully")
+            
+            # Use PDF.js viewer with base64 data
             return f'''
                 <div style="width:100%; height:80vh; position:relative;">
                     <iframe
-                        src="{url}#toolbar=1&navpanes=1&scrollbar=1&view=FitH"
+                        src="https://mozilla.github.io/pdf.js/web/viewer.html?file=data:application/pdf;base64,{base64_pdf}#zoom=page-fit"
                         width="100%"
                         height="100%"
                         style="border: 1px solid #ddd; border-radius: 4px; position:absolute; top:0; left:0; right:0; bottom:0;"
