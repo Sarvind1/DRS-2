@@ -14,13 +14,28 @@ def get_secret(key, default=None):
 
 def get_s3_client():
     """Create and return an S3 client using credentials from Streamlit secrets or environment variables."""
-    return boto3.client(
-        's3',
-        aws_access_key_id=get_secret('access_key_id'),
-        aws_secret_access_key=get_secret('secret_access_key'),
-        aws_session_token=get_secret('session_token'),
-        region_name=get_secret('region', 'eu-central-1')
-    )
+    try:
+        access_key = get_secret('access_key_id')
+        secret_key = get_secret('secret_access_key')
+        session_token = get_secret('session_token')
+        region = get_secret('region', 'eu-central-1')
+        
+        if not access_key or not secret_key:
+            st.warning("AWS credentials not properly configured")
+            return None
+            
+        client = boto3.client(
+            's3',
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            aws_session_token=session_token,
+            region_name=region
+        )
+        
+        return client
+    except Exception as e:
+        st.error(f"Error creating S3 client: {str(e)}")
+        return None
 
 def get_full_s3_key(relative_key):
     """Get the full S3 key including the base prefix.
@@ -43,9 +58,13 @@ def upload_file_to_s3(local_file_path, relative_key):
     """
     try:
         s3_client = get_s3_client()
+        if not s3_client:
+            return False
+            
         bucket_name = get_secret('bucket_name')
         if not bucket_name:
-            raise ValueError("S3 bucket name not configured")
+            st.warning("S3 bucket name not configured")
+            return False
         
         full_key = get_full_s3_key(relative_key)
         s3_client.upload_file(local_file_path, bucket_name, full_key)
@@ -63,9 +82,13 @@ def download_file_from_s3(relative_key, local_file_path):
     """
     try:
         s3_client = get_s3_client()
+        if not s3_client:
+            return False
+            
         bucket_name = get_secret('bucket_name')
         if not bucket_name:
-            raise ValueError("S3 bucket name not configured")
+            st.warning("S3 bucket name not configured")
+            return False
         
         full_key = get_full_s3_key(relative_key)
         os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
@@ -86,9 +109,13 @@ def get_s3_file_url(relative_key):
     """
     try:
         s3_client = get_s3_client()
+        if not s3_client:
+            return None
+            
         bucket_name = get_secret('bucket_name')
         if not bucket_name:
-            raise ValueError("S3 bucket name not configured")
+            st.warning("S3 bucket name not configured")
+            return None
         
         full_key = get_full_s3_key(relative_key)
         url = s3_client.generate_presigned_url(
@@ -112,9 +139,13 @@ def list_s3_files(prefix=""):
     """
     try:
         s3_client = get_s3_client()
+        if not s3_client:
+            return []
+            
         bucket_name = get_secret('bucket_name')
         if not bucket_name:
-            raise ValueError("S3 bucket name not configured")
+            st.warning("S3 bucket name not configured")
+            return []
         
         base_prefix = get_secret('base_prefix', 'Doc_Review/')
         full_prefix = f"{base_prefix}{prefix}"
